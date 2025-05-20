@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>RT Avg Rating Tool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: sans-serif; background: #111; color: white; padding: 20px; text-align: center; }
+    input, button { padding: 10px; font-size: 16px; width: 80%; margin: 10px 0; }
+    #output { margin-top: 20px; font-size: 18px; }
+  </style>
+</head>
+<body>
+  <h2>RT Average Rating</h2>
+  <p>Paste the RT movie review URL:</p>
+  <input id="urlInput" placeholder="https://rottentomatoes.com/m/movie/reviews" />
+  <button onclick="getRating()">Get Rating</button>
+  <div id="output"></div>
+
+  <script>
+    async function getRating() {
+      const url = document.getElementById('urlInput').value;
+      const output = document.getElementById('output');
+      if (!url.includes('/reviews')) {
+        output.textContent = "Please use a /reviews page link.";
+        return;
+      }
+
+      output.textContent = "Loading and calculating...";
+      try {
+        const proxy = 'https://api.allorigins.win/get?url=' + encodeURIComponent(url);
+        const res = await fetch(proxy);
+        const data = await res.json();
+        const text = data.contents;
+
+        const matches = text.match(/Original Score:\s*([A-F][+-]?|\d+(\.\d+)?\/10|\d+(\.\d+)?\/5|\d+(\.\d+)?\/4)/gi) || [];
+        const gradeMap = {
+          'A+': 10, 'A': 9.5, 'A-': 9, 'B+': 8.5, 'B': 8, 'B-': 7.5,
+          'C+': 7, 'C': 6.5, 'C-': 6, 'D+': 5.5, 'D': 5, 'F': 3
+        };
+        const convert = rating => {
+          rating = rating.trim().toUpperCase();
+          if (rating.includes("/10")) return Math.min(parseFloat(rating), 10);
+          if (rating.includes("/5")) return Math.min(parseFloat(rating) * 2, 10);
+          if (rating.includes("/4")) return Math.min(parseFloat(rating) * 2.5, 10);
+          return gradeMap[rating] ?? null;
+        };
+        const scores = matches.map(m => convert(m.split(':')[1])).filter(x => x !== null);
+        const avg = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2);
+        output.textContent = `RT Avg: ${avg} from ${scores.length} reviews`;
+      } catch (e) {
+        output.textContent = "Error fetching or parsing the page.";
+      }
+    }
+  </script>
+</body>
+</html>
